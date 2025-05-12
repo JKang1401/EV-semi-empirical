@@ -18,80 +18,70 @@ The project developed a semi-empirical aging model that combines physics-based p
 
 ### 1. Model Structure
 The model accounts for two types of capacity fade:
-- Calendar Aging: Reflects degradation over time since manufacturing.
-- Cycling Aging: Reflects degradation due to Ampere-hour throughput during driving and charging cycles.
+- **Calendar Aging**: Reflects degradation over time since manufacturing.
+- **Cycling Aging**: Reflects degradation due to Ampere-hour throughput during driving and charging cycles.
 
-The model estimates capacity loss weekly using averaged temperature and State-of-Charge (SOC) data over 7-day periods to capture seasonality and fluctuations without excessive noise. Ambient temperature is a critical factor in overall battery performance and life.
+The model estimates capacity loss weekly using Battery Management System (BMS) data averaged over 7-day periods to capture seasonality and fluctuations without excessive noise. Ambient temperature is a critical factor in overall battery performance and life.
+
+The proposed model builds upon **a baseline model from Cordoba-Arenas (2013)**, which calculates capacity fade for plug-in hybrid electric vehicles (PHEVs) assuming a constant temperature of 30°C. The baseline model is defined by the following equations:
+
+$$ \begin{align} S_{loss,cyc}(Ah) = a_c() \cdot \exp\left(\frac{-E_{ac}}{R_u T}\right) \cdot Ah^z,\quad S_{loss,cld}(t) = a_c() \cdot \exp\left(\frac{-E_{ac}}{R_u T}\right) \cdot t^z \end{align} $$
+
+$$ a_c(*) = a_c + \beta_c \cdot (Ratio)^b + \gamma_c \cdot (SOC_{min} - SOC_0)^c  $$
+
+$$ Ratio = \frac{t_{cd} \cdot t_{cp} + t_{cs}}{t_{cd} + t_{cs}} $$
 
 ### 2. Data Utilization
-The model was trained and tested using 10 years of simulated Battery Management System (BMS) data from 274 customer profiles (182 training, 92 test sets), discretized into weekly intervals, and temperature data reflecting seasonal and daily variations. 
+The model was trained and tested using **10 years of simulated Battery Management System (BMS) data** from 274 customer profiles (182 training, 92 test sets), discretized into weekly intervals, and temperature data reflecting seasonal and daily variations. 
+
+The figure below illustrates the weekly averaged temperature data used in the model, showing seasonal trends (e.g., summer peaks, winter lows) with reduced noise compared to raw data.
+
+  <img src="figures/fig2_1_weekly_average_temperature.png" alt="Figure 1" style="height: 300px; object-fit: contain;">
 
 
 ### 3. Parameter Optimization
-- **Methods Compared**: Broyden-Fletcher-Goldfarb-Shanno (BFGS) optimization (via scipy.optimize.minimize) and Particle Swarm Optimization (PSO).
+- **Methods Compared**: Broyden-Fletcher-Goldfarb-Shanno (BFGS) optimization (via `scipy.optimize.minimize`) and Particle Swarm Optimization (PSO).
 - **PSO Configuration**: 100 particles, 1000 iterations, cognitive parameter 0.3, social parameter 0.2, inertia parameter 0.9.
-- **Results**: PSO outperformed BFGS, achieving a Mean Absolute Percentage Error (MAPE) of 0.2368 compared to BFGS’s 0.2836 (see Table 2.3 below).
-- Calibration: Seven model parameters were optimized using training data, evaluated on 92 test sets.
+- **Calibration**: Seven model parameters were optimized using training data, evaluated on 92 test sets.
+- **Results**
 
-### 4. Evaluation
-- Metrics:
-  - MAPE for SOH predictions.
-  - Mean Squared Error (MSE) for comparing capacity fade predictions against the original model.
-- Visualizations: Histograms and plots were used to analyze prediction accuracy and error patterns (see Figures 2.2, 2.4, 3.1, 4.1 below).
+  BFGS achieved a Mean Absolute Percentage Error (MAPE) of 0.2836. Figure 2 shows a histogram of MAPE values for 92 test customers, with the distribution peaking around 0.2836, indicating moderate prediction accuracy but limited ability to capture fluctuations.
+
+  <img src="figures/fig2_2_dQ_bfgs_mape.png" alt="Figure 2" style="height: 300px; object-fit: contain;">
+  
+  PSO outperformed BFGS, achieving a lower MAPE of 0.2368. Figure 3 displays the MAPE distribution for 92 test customers, with ~30% below 0.225 and over 50% below 0.25, indicating strong optimization accuracy.
+
+  <img src="figures/fig2_4_dQ_pso_mape.png" alt="Figure 3" style="height: 300px; object-fit: contain;">
+
+  The optimized parameters and MAPE results are summarized in Table 1 below.
+- **Parameter Comparison**
+  | Method | Param1 | Param2 | Param3 | Param4 | Param5 | Param6 | Param7 | MAPE |
+  |--------|--------|--------|--------|--------|--------|--------|--------|------|
+  | BFGS   | -1746.41 | -137920 | 0.55 | -11600.92 | 11016.87 | 1.0 | 24644.41 | 0.2836 |
+  | PSO    | -3352.43 | -33422.41 | 0.58 | -5587.31 | 7397 | 0.999 | 27091.64 | 0.2368 |
+
+  *Table 1: Comparison of optimized parameters and MAPE for BFGS and PSO.*
+
+## Results
+The proposed model demonstrated strong performance for SOH prediction in EVs, outperforming the baseline model and effectively capturing real-world battery degradation patterns.
+- **Model Comparison**: The proposed model achieved Mean Squared Errors (MSEs) concentrated between 0 and 5, compared to 5–15 for the baseline model. Figure 4 shows a histogram comparing MSEs of capacity fade predictions for both models, highlighting superior performance of the new model.
+
+  <img src="figures/fig3_1_vs_andrea_MSE.png" alt="Figure 4" style="height: 300px; object-fit: contain;">
+
+- **Prediction Accuracy**: Over 50% of test cases achieved a MAPE below 0.25, indicating robust SOH prediction accuracy. Figure 4 shows a line plot comparing predicted vs. actual capacity fade for a randomly selected customer, demonstrating close alignment with seasonal trends and small fluctuations.
+
+  <img src="figures/fig2_5_pso_prediction_random_customer.png" alt="Figure 5" style="height: 300px; object-fit: contain;">
+
+- **Error Analysis**: Higher temperatures, lower SOC, and increased Ampere-hour throughput were associated with larger prediction errors. Figure 6 shows scatter plots (normal and log scale) of MSE vs. temperature, SOC, and Ampere-hour throughput for both models. The new model’s log-scale errors form a triangular distribution, while the original model’s errors vs. Ampere-hour throughput form a bow shape, suggesting distinct error patterns. 
+
+  <img src="figures/fig4_1_error_analysis_mse.png" alt="Figure 6" width="95%" style="display:inline-block;">
 
 ## Key Contributions
+
 - **Model Development**: Designed a semi-empirical model that incorporates temperature variability and weekly data aggregation.
 - **Optimization**: Implemented and compared BFGS and PSO, demonstrating PSO’s superior ability to capture data fluctuations and seasonal trends.
 - **Error Analysis**: Identified relationships between prediction errors and variables (temperature, SOC, Ampere-hour throughput), revealing insights for future refinements.
 - **Collaboration**: Worked closely with Ford and CAR researchers to align the model with industry needs while adhering to data confidentiality requirements.
-
-## Results
-- **Model Performance**:
-  - The proposed model outperformed the baseline, with MSEs concentrated between **0 and 5** (vs. **5–15** for the baseline) (see Figure 3.1).
-  - Over **50% of test cases** achieved a MAPE below **0.25**, indicating robust SOH prediction accuracy (see Figure 2.4).
-  - The model captured seasonal trends and small fluctuations in capacity fade, suitable for real-world EV applications.
-- **Example Prediction**:
-  - For a randomly selected customer from the highest-density MAPE bin, the PSO-calibrated model accurately followed the original data’s fluctuations, including seasonal trends (see Figure 2.4).
-- **Error Analysis**:
-  - Higher temperatures, lower SOC, and increased Ampere-hour throughput correlated with larger errors (see Figure 4.1).
-  - The new model’s error distribution in log scale showed a triangular shape, while the original model’s error vs. Ampere-hour throughput had a bow shape, suggesting distinct error patterns.
- 
-### Visual Results
-Below are descriptions of key figures referenced in the project. *Note*: Due to confidentiality, placeholder images or descriptions are provided. Actual images would be included in a non-confidential setting.
-
-- **Figure 2.1: Weekly Average Temperature**
-  - *Description*: A line plot showing the weekly average temperature over 10 years, capturing seasonal trends (e.g., summer peaks, winter lows) and daily fluctuations with reduced noise compared to raw data.
-  - *Purpose*: Demonstrates the effectiveness of weekly averaging for temperature data in the model.
-  - *Placeholder*: [To be added as `figures/fig2_1_temperature.png` in the repository.]
-
-- **Figure 2.2: MAPE Histogram for BFGS**
-  - *Description*: A histogram of MAPE values for 92 test customers using BFGS, with 20 bins. The distribution peaks around 0.2836, indicating moderate prediction accuracy but limited ability to capture fluctuations.
-  - *Placeholder*: [To be added as `figures/fig2_2_bfgs_mape_histogram.png`.]
-
-- **Figure 2.4: MAPE Histogram and Prediction Plot for PSO**
-  - *Description*: 
-    - *Histogram*: Shows MAPE distribution for 92 test customers using PSO, with ~30% of cases below 0.225 and over 50% below 0.25, indicating strong prediction accuracy.
-    - *Prediction Plot*: A line plot comparing predicted vs. actual capacity fade for a randomly selected customer, showing close alignment with seasonal trends and small fluctuations.
-  - *Placeholder*: [To be added as `figures/fig2_4_pso_mape_and_prediction.png`.]
-
-- **Figure 3.1: MSE Histogram for Model Comparison**
-  - *Description*: A histogram comparing MSEs of capacity fade predictions for the new and original models. The new model’s MSEs are concentrated between 0 and 5, while the original model’s are between 5 and 15, demonstrating superior performance.
-  - *Placeholder*: [To be added as `figures/fig3_1_mse_histogram.png`.]
-
-- **Figure 4.1: Error Pattern Analysis**
-  - *Description*: Scatter plots (normal and log scale) showing MSE vs. temperature, SOC, and Ampere-hour throughput for both models. Key observations:
-    - Higher temperatures and lower SOC increase errors.
-    - The new model’s log-scale errors form a triangular distribution.
-    - The original model’s errors vs. Ampere-hour throughput form a bow shape.
-  - *Placeholder*: [To be added as `figures/fig4_1_error_analysis.png`.]
-
-### Parameter Comparison
-| Method | Param1 | Param2 | Param3 | Param4 | Param5 | Param6 | Param7 | MAPE |
-|--------|--------|--------|--------|--------|--------|--------|--------|------|
-| BFGS   | -1746.41 | -137920 | 0.55 | -11600.92 | 11016.87 | 1.0 | 24644.41 | 0.2836 |
-| PSO    | -3352.43 | -33422.41 | 0.58 | -5587.31 | 7397 | 0.999 | 27091.64 | 0.2368 |
-
-*Table 2.3: Comparison of optimized parameters and MAPE for BFGS and PSO.*
 
 ## Technical Skills
 - **Programming**: Python for model development, optimization, and data analysis.
